@@ -5,7 +5,6 @@ kubeconfig
 *.kubeconfig
 
 # Secret Management & Overrides
-task1/bootstrap/repo-secret.yaml
 .env
 .envrc
 *.local
@@ -19,19 +18,8 @@ Thumbs.db
 dist/
 bin/
 
-# Generated Argo CD manifests (created during bootstrap)
-# task1/apps/argocd/helm-rendered.yaml
-# task1/apps/argocd/bootstrap-manifests.yaml
-# task1/apps/argocd/bootstrap-vanilla.yaml
-# task1/apps/argocd/install-manifests.yaml
-
 # Pre-commit tool cache
 .pre-commit-cache/
 
-# AI tools
-.claude
-COMPLETION_SUMMARY.md
-
 # misc
 *.pdf
-task1/bootstrap/bootstrap-vanilla.yaml
