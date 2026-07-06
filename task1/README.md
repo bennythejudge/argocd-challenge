@@ -7,7 +7,7 @@
 - [Description](#description)
 - [Assumptions](#assumptions)
 - [Repo structure](#repo-structure)
-- [Verifications](#verifications)
+- [Verification and testing](#verification-and-testing)
 - [Troubleshooting guide](#troubleshooting-guide)
 - [Tests execution](#tests-execution)
 
@@ -161,26 +161,7 @@ Deploy Argo CD and prepare a GitOps repo that makes Argo CD do the following:
 
 ### Monitoring
 
-- The monitoring solution is based on the [Prometheus Operator](https://github.com/prometheus-operator/prometheus-operator) via the [Helm chart](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack)
-
-- All Argo CD components expose Prometheus metrics endpoints via `ServiceMonitors`
-
-- Prometheus uses label selectors (`prometheus: kube-prometheus`) to discover `ServiceMonitors` across namespaces
-  - Requires namespace labels: `monitoring: "true"`
-
-- The Grafana dashboard comes from an [example](https://github.com/argoproj/argo-cd/blob/master/examples/dashboard.json) in the ArgoCD repo
-
-- The alerts where generated with the help of Claude code.
-
-- Retention: 7-day retention with 10GB storage limit (suitable for demo/testing)
-
-- `PrometheusRules` defined for Argo CD cover:
-  - Application health degradation
-  - Sync failures
-  - Component availability
-  - Performance (sync duration, reconciliation time)
-  - Resource usage (memory, CPU)
-  - Repository connection issues
+See [MONITORING.md](docs/MONITORING.md)
 
 ## Repo structure
 
@@ -199,81 +180,16 @@ Deploy Argo CD and prepare a GitOps repo that makes Argo CD do the following:
 ├── docs
 │   ├── argocdscreenshot01.png
 │   ├── design.png
-│   ├── design1x.png
-│   ├── design2x.png
-│   └── MONITORING.md
+│   ├── MONITORING.md
+│   └── SCREENSHOTS.md
 ├── kind-config.yaml
 ├── README.md
 └── Taskfile.yaml
 ```
 
-## Verifications
+## Verification and testing
 
-### Verify Helm Version Replacement
-
-```bash
-task check-helm-version-inside-repo-server
-task: [check-helm-version-inside-repo-server] echo "Checking Helm version inside Argo CD repo-server"
-Checking Helm version inside Argo CD repo-server
-task: [check-helm-version-inside-repo-server] kubectl exec -n argocd deploy/argocd-repo-server -c repo-server -- helm version --short
-v3.7.2+g663a896
-```
-
-### Verify Prometheus is Monitoring Argo CD
-
-#### Check `ServiceMonitors` are created
-
-```bash
-k get servicemonitor -n argocd
-NAME                              AGE
-argocd-application-controller     65m
-argocd-notifications-controller   65m
-argocd-redis                      65m
-argocd-repo-server                65m
-argocd-server                     65m
-```
-
-Expected:
-
-- argocd-server-metrics
-- argocd-repo-server-metrics
-- argocd-application-controller-metrics
-- argocd-dex-server
-- argocd-redis
-
-#### Check Prometheus targets
-
-- Open Prometheus UI (see above)
-- Navigate to Status → Targets
-- Look for Argo CD targets (should be UP)
-
-#### Check Prometheus rules
-
-```bash
-k get prometheusrules -n monitoring
-NAME                                                              AGE
-argocd-alerts                                                     67m
-kube-prometheus-stack-k8s.rules.container-cpu-usage-seconds-tot   67m
-kube-prometheus-stack-k8s.rules.container-memory-cache            67m
-kube-prometheus-stack-k8s.rules.container-memory-rss              67m
-kube-prometheus-stack-k8s.rules.container-memory-swap             67m
-kube-prometheus-stack-k8s.rules.container-memory-working-set-by   67m
-kube-prometheus-stack-k8s.rules.container-resource                67m
-kube-prometheus-stack-k8s.rules.pod-owner                         67m
-kube-prometheus-stack-kube-apiserver-burnrate.rules               67m
-kube-prometheus-stack-kube-apiserver-histogram.rules              67m
-kube-prometheus-stack-kube-scheduler.rules                        67m
-kube-prometheus-stack-kubernetes-system-controller-manager        67m
-kube-prometheus-stack-kubernetes-system-scheduler                 67m
-kube-prometheus-stack-prometheus                                  67m
-kube-prometheus-stack-prometheus-operator                         67m
-```
-
-#### View Argo CD dashboard in Grafana
-
-- Open Grafana UI (see above)
-- Navigate to Dashboards
-- Look for "ArgoCD" dashboard
+See [TESTING.md](docs/TESTING.md)
 
 ## **Troubleshooting Guide**
 
