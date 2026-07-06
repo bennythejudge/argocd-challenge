@@ -10,4 +10,4 @@
 python -m python3 -m http.server 8791
 ```
 
-and then open [http://localhost:8791](http://localhost:8791/argocd-flow.html)
+and then open [http://localhost:8791/argocd-flow.html](http://localhost:8791/argocd-flow.html)
