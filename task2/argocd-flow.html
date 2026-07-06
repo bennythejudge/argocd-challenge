@@ -114,12 +114,11 @@ sequenceDiagram
     Repo->>Git: [4] fetch target commit
     Repo-->>Ctrl: [4] rendered manifests
     Ctrl->>API: [5] read live state (diff)
-    Ctrl->>API: [6] apply create / update / prune (depends also on exact configuration[*])
+    Ctrl->>API: [6] apply create / update / prune
     Ctrl->>API: [7] write Sync + Health status
     Note over Argo,API: argocd-server only reads<br/>status back out, for the UI/CLI
       </pre>
-      <p style="font-size:0.4em; color:var(--sub); text-align:center; margin-top:0.3em;">Numbers match the step-by-step walkthrough on the next slide.</p>
-      <p style="font-size:0.3em; color:var(--sub); text-align:center; margin-top:0.3em;">[*] The exact scope of actions that ArgoCD will perform can be controlled. For example we can prevent ArgoCD from pruning resources.</p>
+      <p style="font-size:0.3em; color:var(--sub); text-align:center; margin-top:0.3em;">Numbers match the step-by-step walkthrough on the next slide.</p>
     </section>
 
     <!-- Slide 4: step-by-step walkthrough (text only, native reveal.js fragments, no JS) -->
