@@ -24,11 +24,7 @@ spec:
             level: info
         configs:
           cm:
-            # Without this, Argo CD has no health check for its own "Application" CRD, so
-            # app-of-apps children (this app, kube-prometheus-stack, monitoring-config) are
-            # marked Healthy the instant they're created - defeating sync-wave ordering between
-            # them (root-app would blow through waves -5/0/5 in seconds instead of waiting for
-            # each child's real, aggregated health).
+            # This is needed for the SyncWaves
             resource.customizations.health.argoproj.io_Application: |
               hs = {}
               hs.status = "Progressing"
@@ -82,12 +78,12 @@ spec:
               additionalLabels:
                 prometheus: kube-prometheus
         dex:
+          # Bootstrap disables Dex entirely (values-bootstrap.yaml: dex.enabled: false); repeat
+          # that here too, since Helm renders from chart defaults + these values only - omitting
+          # it would silently re-enable Dex (chart default) the moment self-management takes over.
+          enabled: false
           metrics:
             enabled: false
-            # serviceMonitor:
-            #   enabled: true
-            #   additionalLabels:
-            #     prometheus: kube-prometheus
         redis:
           metrics:
             enabled: true
