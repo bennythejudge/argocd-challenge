@@ -35,12 +35,11 @@ Expected:
 - argocd-server-metrics
 - argocd-repo-server-metrics
 - argocd-application-controller-metrics
-- argocd-dex-server
 - argocd-redis
 
 ### Check Prometheus targets
 
-- Open Prometheus UI (see above)
+- Open Prometheus UI (see [README.md](../README.md))
 - Navigate to Status → Targets
 - Look for Argo CD targets (should be UP)
 
@@ -68,7 +67,7 @@ kube-prometheus-stack-prometheus-operator                         67m
 
 ### View Argo CD dashboard in Grafana
 
-- Open Grafana UI (see above)
+- Open Grafana UI (see [README.md](../README.md))
 - Navigate to Dashboards
 - Look for "ArgoCD" dashboard
 
