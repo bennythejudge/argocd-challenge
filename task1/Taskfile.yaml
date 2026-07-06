@@ -48,11 +48,6 @@ tasks:
       # Idempotency check: Skip if Argo CD is already installed
       # This prevents conflicts if root-app has already taken over management
       - kubectl get deployment argocd-server -n {{.ARGOCD_NAMESPACE}} 2>/dev/null
-    preconditions:
-      - sh: test -n "$GITHUB_TOKEN"
-        msg: "GITHUB_TOKEN environment variable is required. Set it with: export GITHUB_TOKEN=your_token"
-      - sh: test -n "$GITHUB_USER"
-        msg: "GITHUB_USER environment variable is required. Set it with: export GITHUB_USER=your_gh_username"
     cmds:
       - echo "Step 2 - Installing vanilla Argo CD"
       - helm repo add argo https://argoproj.github.io/argo-helm --force-update
@@ -67,8 +62,6 @@ tasks:
           -n {{.ARGOCD_NAMESPACE}} \
           --from-literal=type=git \
           --from-literal=url=https://github.com/bennythejudge/argocd-challenge \
-          --from-literal=password=$GITHUB_TOKEN \
-          --from-literal=username=$GITHUB_USER \
           --dry-run=client -o yaml | kubectl apply -f -
       # label the Secret so that ArgoCD knows it's a repository credential (this is required for ArgoCD to use the Secret)
       - kubectl label secret github-repo-credentials -n {{.ARGOCD_NAMESPACE}} argocd.argoproj.io/secret-type=repository --overwrite
