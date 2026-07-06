@@ -84,7 +84,8 @@ task init-hooks
    task 03-apply-root-app
    ```
 
-   [!IMPORTANT] This will cause a restart of `argocd-server` which will kill any `port-forward` command. Remember to restart the `port-forward`
+   **WARNING**
+   This will cause a restart of `argocd-server` which will kill any `port-forward` command. Remember to restart the `port-forward`
 
 5. Wait for all applications to sync (this may take 5-10 minutes for Prometheus to fully deploy). **The previous `port-forward` will close and you will need to run it once more.**
 
