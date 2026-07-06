@@ -9,7 +9,7 @@
 - [Repo structure](#repo-structure)
 - [Verification and testing](#verification-and-testing)
 - [Troubleshooting guide](#troubleshooting-guide)
-- [Tests execution](#tests-execution)
+- [Real-World Production Considerations](real-world-production-considerations)
 
 ## Prerequisites
 
@@ -525,16 +525,6 @@ kubectl patch application <app-name> -n argocd --type merge -p '{"metadata":{"an
 task clean
 ```
 
-### 6. Real-World Production Considerations
+## Real-World Production Considerations
 
 While this solution is designed for local testing, it lacks completely any feature that would be expected in a real world production scenario, like HA, performance features, DR, secure hardening and more.
-
-## Tests execution
-
-[ArgoCD UI screenshot](docs/argocdscreenshot01.png)
-
-```bash
-
-TODO: replace with the output from watch
-
-```
