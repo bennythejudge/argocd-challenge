@@ -1,0 +1,111 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+  annotations:
+    # Sync wave 0: Deploy after Argo CD self-management (wave -5) completes
+    # This ensures Argo CD has restarted with Helm 3.7 and ServiceMonitors exist
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    targetRevision: 84.4.0
+    chart: kube-prometheus-stack
+    helm:
+      values: | # pragma: allowlist secret
+        # Minimal configuration for Argo CD monitoring demo
+
+        prometheus:
+          prometheusSpec:
+            # Discover ServiceMonitors with label: prometheus=kube-prometheus
+            serviceMonitorSelector:
+              matchLabels:
+                prometheus: kube-prometheus
+            serviceMonitorNamespaceSelector:
+              matchLabels:
+                monitoring: "true"
+            # Discover PrometheusRules with label: prometheus=kube-prometheus
+            ruleSelector:
+              matchLabels:
+                prometheus: kube-prometheus
+            ruleNamespaceSelector:
+              matchLabels:
+                monitoring: "true"
+            # ScrapeConfig namespace selector (required when other selectors are set)
+            scrapeConfigNamespaceSelector:
+              matchLabels:
+                monitoring: "true"
+
+        grafana:
+          enabled: true
+          # Password managed via Secret (created separately) # pragma: allowlist secret
+          admin:
+            existingSecret: grafana-admin-secret # pragma: allowlist secret
+            userKey: admin-user
+            passwordKey: admin-password
+          # Auto-import dashboards from ConfigMaps
+          sidecar:
+            dashboards:
+              enabled: true
+              searchNamespace: ALL
+              label: grafana_dashboard
+              labelValue: "1"
+
+        # Alertmanager for alert routing (enabled with defaults)
+        alertmanager:
+          enabled: true
+
+        nodeExporter:
+          enabled: false
+
+        kubeStateMetrics:
+          enabled: true
+
+        # Minimal default rules (reduce noise)
+        defaultRules:
+          create: true
+          rules:
+            alertmanager: false
+            etcd: false
+            configReloaders: false
+            general: false
+            k8s: false
+            kubeApiserver: false
+            kubeApiserverAvailability: false
+            kubeApiserverSlos: false
+            kubelet: false
+            kubeProxy: false
+            kubePrometheusGeneral: false
+            kubePrometheusNodeRecording: false
+            kubernetesApps: false
+            kubernetesResources: false
+            kubernetesStorage: false
+            kubernetesSystem: false
+            kubeScheduler: false
+            kubeStateMetrics: false
+            network: false
+            node: false
+            nodeExporterAlerting: false
+            nodeExporterRecording: false
+            prometheus: true
+            prometheusOperator: true
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas

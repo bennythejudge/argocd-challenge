@@ -1,0 +1,23 @@
+# Vanilla Argo CD Bootstrap Configuration
+# Used ONLY for initial imperative installation (task 02-bootstrap-argocd)
+# After root-app is applied, Argo CD will self-manage using application.yaml
+
+global:
+  logging:
+    level: info
+
+# Enable metrics for Prometheus monitoring (will be added via self-management)
+repoServer:
+  metrics:
+    enabled: true
+
+applicationController:
+  metrics:
+    enabled: true
+
+server:
+  metrics:
+    enabled: true
+
+dex:
+  enabled: false

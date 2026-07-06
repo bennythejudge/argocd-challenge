@@ -1,0 +1,191 @@
+version: '3'
+
+vars:
+  CLUSTER_NAME: argocd-challenge-cluster
+  ARGOCD_NAMESPACE: argocd
+  MONITORING_NAMESPACE: monitoring
+  ARGOCD_HELM_VERSION: 10.1.1
+  BOOTSTRAP_FOLDER: bootstrap/
+  TARGET_HELM_VERSION: 3.7.2
+
+tasks:
+  # ============================================================================
+  # ArgoCD Challenge
+  # ============================================================================
+  # What this Taskfile does:
+  # 1. Create a local Kubernetes cluster using kind
+  # 2. Install vanilla Argo CD (use helm template + kubectl apply)
+  # 3. Apply root-app so that ArgoCD will start managing itself from Git
+  # 4. Argo CD updates itself to match Git state (this applies the Helm downgrade to 3.7.2 via initContainer injection) - all ArgoCD Pods restarted
+  # 5. ArgoCD via Git state create a Prometheus + Grafana stack for monitoring (Grafana admin password is randomly generated and stored in a Secret)
+  # 6. ArgoCD via Git state applies a demo configuration for the monitoring stack (Grafana dashboard + alerting rules)
+  #
+  # Quick start (all steps):  task bootstrap
+  # Manual steps:             task 01-create-cluster
+  #                           task 02-bootstrap-argocd
+  #                           task 03-apply-root-app
+  # Reset without destroying: task reset-argocd
+  #
+  # All tasks are idempotent - safe to re-run without side effects
+  # ============================================================================
+
+  01-create-cluster:
+    desc: "Step 1: Create kind cluster (idempotent)"
+    status:
+      - kind get clusters | grep -q '^{{.CLUSTER_NAME}}$'
+    cmds:
+      - echo "Step 1 - Creating kind cluster"
+      - kind create cluster --name {{.CLUSTER_NAME}} --config kind-config.yaml
+      - kubectl cluster-info --context kind-{{.CLUSTER_NAME}}
+      - kubectl get nodes -o wide
+      - echo ""
+      - echo "Cluster ready!"
+      - echo "Next step - task 02-bootstrap-argocd"
+
+  02-bootstrap-argocd:
+    desc: "Step 2: Install vanilla Argo CD (no Helm 3.7 patch yet)"
+    status:
+      # Idempotency check: Skip if Argo CD is already installed
+      # This prevents conflicts if root-app has already taken over management
+      - kubectl get deployment argocd-server -n {{.ARGOCD_NAMESPACE}} 2>/dev/null
+    preconditions:
+      - sh: test -n "$GITHUB_TOKEN"
+        msg: "GITHUB_TOKEN environment variable is required. Set it with: export GITHUB_TOKEN=your_token"
+      - sh: test -n "$GITHUB_USER"
+        msg: "GITHUB_USER environment variable is required. Set it with: export GITHUB_USER=your_gh_username"
+    cmds:
+      - echo "Step 2 - Installing vanilla Argo CD"
+      - helm repo add argo https://argoproj.github.io/argo-helm --force-update
+      - kubectl create namespace {{.ARGOCD_NAMESPACE}} --dry-run=client -o yaml | kubectl apply -f -
+      - kubectl create namespace {{.MONITORING_NAMESPACE}} --dry-run=client -o yaml | kubectl apply -f -
+      # I used imperative labeling to keep the demo simple
+      - kubectl label namespace {{.ARGOCD_NAMESPACE}} monitoring=true --overwrite
+      - kubectl label namespace {{.MONITORING_NAMESPACE}} monitoring=true --overwrite
+      - echo "Creating GitHub repository credentials"
+      - |
+        kubectl create secret generic github-repo-credentials \
+          -n {{.ARGOCD_NAMESPACE}} \
+          --from-literal=type=git \
+          --from-literal=url=https://github.com/bennythejudge/argocd-challenge \
+          --from-literal=password=$GITHUB_TOKEN \
+          --from-literal=username=$GITHUB_USER \
+          --dry-run=client -o yaml | kubectl apply -f -
+      # label the Secret so that ArgoCD knows it's a repository credential (this is required for ArgoCD to use the Secret)
+      - kubectl label secret github-repo-credentials -n {{.ARGOCD_NAMESPACE}} argocd.argoproj.io/secret-type=repository --overwrite
+      - echo "Creating Grafana admin password"
+      - |
+        GRAFANA_PASSWORD=$(openssl rand -base64 16)
+        kubectl create secret generic grafana-admin-secret \
+          -n {{.MONITORING_NAMESPACE}} \
+          --from-literal=admin-user=admin \
+          --from-literal=admin-password=$GRAFANA_PASSWORD \
+          --dry-run=client -o yaml | kubectl apply -f -
+      - echo "Rendering vanilla Argo CD (values-bootstrap.yaml)"
+      - helm template argocd argo/argo-cd --version {{.ARGOCD_HELM_VERSION}} --namespace {{.ARGOCD_NAMESPACE}} -f bootstrap/values-bootstrap.yaml > bootstrap/bootstrap-vanilla.yaml
+      - echo "Applying vanilla Argo CD manifests"
+      - kubectl apply --server-side=true -f bootstrap/bootstrap-vanilla.yaml
+      - echo "Waiting for Argo CD to be ready"
+      - kubectl wait --namespace {{.ARGOCD_NAMESPACE}} --for=condition=ready pod -l app.kubernetes.io/name=argocd-server --timeout=300s
+      - kubectl wait --namespace {{.ARGOCD_NAMESPACE}} --for=condition=ready pod -l app.kubernetes.io/name=argocd-repo-server --timeout=300s
+      - echo "Vanilla Argo CD installed!"
+      - echo "Current Helm version in repo-server:"
+      - kubectl exec -n {{.ARGOCD_NAMESPACE}} deploy/argocd-repo-server -c repo-server -- helm version --short
+
+  03-apply-root-app:
+    desc: "Step 3: Apply root application (triggers GitOps self-management)"
+    status:
+      # Skip if root-app already exists and is healthy
+      - kubectl get application root-app -n {{.ARGOCD_NAMESPACE}} -o jsonpath='{.status.health.status}' 2>/dev/null | grep -q "Healthy"
+    cmds:
+      - echo "Step 3 - Applying root application"
+      - echo ""
+      - echo "This triggers Argo CD to manage itself from Git"
+      - echo " Root app will discover apps/argocd/application.yaml"
+      - echo " Argo CD will detect drift and update itself to add Helm 3.7"
+      - echo ""
+      - kubectl apply -f bootstrap/root-app.yaml
+      - echo ""
+      - echo "Root application applied!"
+      - echo ""
+      - echo "Next steps"
+      - echo " Watch apps sync - kubectl get applications -n argocd -w"
+      - echo " Verify Helm version after sync - kubectl exec -n argocd deploy/argocd-repo-server -- helm version --short"
+      - echo " Port forward UI - kubectl port-forward svc/argocd-server -n argocd 8080:443"
+
+  # ============================================================================
+  # CONVENIENCE TASKS
+  # ============================================================================
+
+  bootstrap:
+    desc: "Full bootstrap: Create cluster + Install Argo CD + Apply root-app (all 3 steps)"
+    cmds:
+      - task: 01-create-cluster
+      - task: 02-bootstrap-argocd
+      - task: 03-apply-root-app
+      - echo ""
+      - echo "Bootstrap complete! Next steps:"
+      - 'echo "  - Watch sync: kubectl get applications -n argocd -w"'
+      - 'echo "  - Get admin password: task extract-admin-password"'
+      - 'echo "  - Access UI: kubectl port-forward svc/argocd-server -n argocd 8080:443"'
+
+  reset-argocd:
+    desc: "Reset Argo CD to allow re-running bootstrap (without destroying cluster)"
+    cmds:
+      - echo "Resetting Argo CD installation..."
+      - echo "Step 1 - Removing root-app (hands control back to kubectl)"
+      - kubectl delete application root-app -n {{.ARGOCD_NAMESPACE}} --ignore-not-found=true
+      - echo "Step 2 - Waiting for child applications to be removed"
+      - sleep 5
+      - echo "Step 3 - Deleting Argo CD namespace"
+      - kubectl delete namespace {{.ARGOCD_NAMESPACE}} --ignore-not-found=true
+      - echo "Step 4 - Deleting monitoring namespace"
+      - kubectl delete namespace {{.MONITORING_NAMESPACE}} --ignore-not-found=true
+      - echo "Step 5 - Waiting for namespaces to be fully terminated"
+      - kubectl wait --for=delete namespace/{{.ARGOCD_NAMESPACE}} --timeout=120s || true
+      - kubectl wait --for=delete namespace/{{.MONITORING_NAMESPACE}} --timeout=120s || true
+      - echo ""
+      - echo "Reset complete! You can now re-run:"
+      - echo "  task 02-bootstrap-argocd"
+      - echo "  task 03-apply-root-app"
+
+  # ============================================================================
+  # UTILITY TASKS
+  # ============================================================================
+
+  # --- preliminary or one off commands ---- #
+  init-hooks:
+      desc: Install and configure pre-commit hooks locally
+      cmds:
+        - pre-commit install
+        - pre-commit install --hook-type pre-push
+        - echo "Pre-commit hooks successfully installed."
+
+  lint:
+    desc: Manually trigger linting across all files in the workspace
+    cmds:
+      - pre-commit run --all-files
+
+  clean:
+    desc: Delete the kind cluster and clean up generated files
+    cmds:
+      - echo "Deleting kind cluster"
+      - kind delete cluster --name {{.CLUSTER_NAME}} || true
+      - echo "Cleanup complete"
+
+  extract-admin-password:
+    desc: Extract the Argo CD admin password from the cluster
+    cmds:
+      - echo "Extracting Argo CD admin password"
+      - kubectl get secret -n argocd argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
+
+  extract-grafana-password:
+    desc: Extract the Grafana admin password from the cluster
+    cmds:
+      - echo "Extracting Grafana admin password"
+      - kubectl get secret -n {{.MONITORING_NAMESPACE}} grafana-admin-secret -o jsonpath="{.data.admin-password}" | base64 -d; echo
+
+  check-helm-version-inside-repo-server:
+    desc: Check the Helm version inside the Argo CD repo-server container
+    cmds:
+      - echo "Checking Helm version inside Argo CD repo-server"
+      - kubectl exec -n {{.ARGOCD_NAMESPACE}} deploy/argocd-repo-server -c repo-server -- helm version --short

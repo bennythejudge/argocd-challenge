@@ -1,0 +1,102 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd
+  namespace: argocd
+  # Prevent Argo CD from pruning itself and causing downtime
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+    # Sync wave -5: Self-manage before other apps (causes restart for Helm 3.7 init container)
+    argocd.argoproj.io/sync-wave: "-5"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://argoproj.github.io/argo-helm
+    targetRevision: 10.1.1
+    chart: argo-cd
+    helm:
+      # Values merged from values.yaml + helm-3.7-patch.yaml
+      values: |
+        global:
+          logging:
+            level: info
+        repoServer:
+          # Custom Helm 3.7.2 replacement via init container
+          # Copies binary from official alpine/helm image
+          initContainers:
+            - name: install-helm-3-7
+              image: alpine/helm:3.7.2
+              command: [cp, /usr/bin/helm, /custom-tools/helm]
+              volumeMounts:
+                - name: custom-tools
+                  mountPath: /custom-tools
+          volumes:
+            - name: custom-tools
+              emptyDir: {}
+          volumeMounts:
+            - name: custom-tools
+              mountPath: /usr/local/bin/helm
+              subPath: helm
+          metrics:
+            enabled: true
+            serviceMonitor:
+              enabled: true
+              additionalLabels:
+                prometheus: kube-prometheus
+        controller:
+          metrics:
+            enabled: true
+            service:
+              enabled: true
+            serviceMonitor:
+              enabled: true
+              additionalLabels:
+                prometheus: kube-prometheus
+        server:
+          metrics:
+            enabled: true
+            serviceMonitor:
+              enabled: true
+              additionalLabels:
+                prometheus: kube-prometheus
+        dex:
+          metrics:
+            enabled: false
+            # serviceMonitor:
+            #   enabled: true
+            #   additionalLabels:
+            #     prometheus: kube-prometheus
+        redis:
+          metrics:
+            enabled: true
+            serviceMonitor:
+              enabled: true
+              additionalLabels:
+                prometheus: kube-prometheus
+        notifications:
+          metrics:
+            enabled: true
+            serviceMonitor:
+              enabled: true
+              additionalLabels:
+                prometheus: kube-prometheus
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      # Auto-sync and self-heal enabled for GitOps reconciliation
+      # Prune disabled to prevent Argo CD from accidentally deleting its own resources
+      selfHeal: true
+      prune: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

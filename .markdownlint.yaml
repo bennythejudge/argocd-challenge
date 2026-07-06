@@ -1,0 +1,3 @@
+default: true
+MD013: false # Disable line length restrictions for code/command blocks
+MD024: true # Do not allow duplicate headings
