@@ -172,7 +172,7 @@ sequenceDiagram
       <ul class="notes">
         <li><strong>Default polling:</strong> the application-controller re-diffs every Application on a timer (~3 minutes by default).</li>
         <li><strong>Webhooks are an alternative to polling:</strong> they just skip the polling wait and funnel into the exact same diff/apply logic. They help avoid rate limiting by the Git provider.</li>
-        <li><strong>Self-heal:</strong> with <code>selfHeal: true</code>, a manual <code>kubectl edit</code> that drifts from git gets reverted on the very next loop &mdash; live state no longer matches the rendered manifest, so the controller "fixes" it back to git. One of the tennet of GitOps.</li>
+        <li><strong>Self-heal:</strong> with <code>selfHeal: true</code>, a manual <code>kubectl edit</code> that drifts from git gets reverted on the very next loop &mdash; live state no longer matches the rendered manifest, so the controller "fixes" it back to git. One of the tenets of GitOps.</li>
         <li><strong>Two independent status fields:</strong> <em>Sync status</em> (does live match git?) and <em>Health status</em> (are the resulting objects actually healthy?) are separate. A Synced app can still be Degraded (e.g. CrashLoopBackOff) &mdash; sync says nothing about whether the change worked.</li>
       </ul>
     </section>
@@ -211,7 +211,7 @@ sequenceDiagram
       </table>
       <div class="callout">
         <div class="kicker">From my own Part 1 submission</div>
-        <p><code>bootstrap/root-app.yaml</code>bug: I renamed the repo and in editing the YAMLs I had a typo so that instead of <code>argocd-challenge</code>, I had <code>argcd-challenge</code>. That broke discovery at the very first hop: nothing wrong with the controller, repo-server, or kube API server, just an unreachable repo. Every child Application silently never appeared.</p>
+        <p><code>bootstrap/root-app.yaml</code> bug: I renamed the repo and in editing the YAMLs I had a typo so that instead of <code>argocd-challenge</code>, I had <code>argcd-challenge</code>. That broke discovery at the very first hop: nothing wrong with the controller, repo-server, or kube API server, just an unreachable repo. Every child Application silently never appeared.</p>
       </div>
     </section>
 

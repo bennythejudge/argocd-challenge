@@ -180,8 +180,13 @@ See [MONITORING.md](docs/MONITORING.md)
 ├── docs
 │   ├── argocdscreenshot01.png
 │   ├── design.png
+│   ├── grafana.png
 │   ├── MONITORING.md
-│   └── SCREENSHOTS.md
+│   ├── prom-alert-firing.png
+│   ├── prom-alerts-overview.png
+│   ├── prom-rules.png
+│   ├── prom-targets.png
+│   └── TESTING.md
 ├── kind-config.yaml
 ├── README.md
 └── Taskfile.yaml

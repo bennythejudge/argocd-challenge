@@ -93,7 +93,7 @@ tasks:
       - echo "Step 3 - Applying root application"
       - echo ""
       - echo "This triggers Argo CD to manage itself from Git"
-      - echo " Root app will discover apps/argocd/application.yaml"
+      - echo " Root app will discover apps/"
       - echo " Argo CD will detect drift and update itself to add Helm 3.7"
       - echo ""
       - kubectl apply -f bootstrap/root-app.yaml

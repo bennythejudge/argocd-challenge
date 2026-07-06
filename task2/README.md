@@ -7,7 +7,7 @@
 - Alternatively you can run an HTTP server to serve the HTML page:
 
 ```bash
-python -m python3 -m http.server 8791
+python -m http.server 8791
 ```
 
 and then open [http://localhost:8791/argocd-flow.html](http://localhost:8791/argocd-flow.html)

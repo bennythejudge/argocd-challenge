@@ -21,6 +21,6 @@ The diagram itself is 100% Mermaid-generated; the CSS is purely cosmetic scaffol
 
 Clone the repo and `cd` into the root of the repo.
 
-For [Task nr.1](task1), `cd task1; task -l`. More info are found in the [README.md](task1/README.md) inside the folder.
+For [Task nr.1](task1), `cd task1; task -l`. More information can be found in the [README.md](task1/README.md) inside the folder.
 
 For [Task nr.2](task2), `cd task2`

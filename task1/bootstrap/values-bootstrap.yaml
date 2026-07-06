@@ -1,6 +1,6 @@
 # Vanilla Argo CD Bootstrap Configuration
 # Used ONLY for initial imperative installation (task 02-bootstrap-argocd)
-# After root-app is applied, Argo CD will self-manage using application.yaml
+# After root-app is applied, Argo CD will self-manage using apps/argocd-app.yaml
 
 global:
   logging:

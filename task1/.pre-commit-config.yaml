@@ -10,7 +10,6 @@ repos:
       - id: detect-private-key
       - id: check-yaml
         args: [--allow-multiple-documents]
-        #exclude: ^task1/apps/argocd/install-manifests.yaml$ # Exclude heavy rendered file from strict yaml check if needed
       - id: check-added-large-files
         args: [--maxkb=800]
 
