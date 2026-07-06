@@ -167,7 +167,8 @@ sequenceDiagram
     <!-- Slide 5: it never really stops -->
     <section>
       <div class="kicker">Why this matters</div>
-      <h2>It never really stops. At the heart of GitOps.</h2>
+      <h2>It never really stops.</h2>
+      <h6>At the heart of GitOps.</h6>
       <ul class="notes">
         <li><strong>Default polling:</strong> the application-controller re-diffs every Application on a timer (~3 minutes by default).</li>
         <li><strong>Webhooks are an alternative to polling:</strong> they just skip the polling wait and funnel into the exact same diff/apply logic. They help avoid rate limiting by the Git provider.</li>
@@ -210,18 +211,19 @@ sequenceDiagram
       </table>
       <div class="callout">
         <div class="kicker">From my own Part 1 submission</div>
-        <p><code>bootstrap/root-app.yaml</code> I renamed the repo and in editing the YAMLs I had a typo so that instead of <code>argocd-challenge</code>, I had <code>argcd-challend</code>&mdash;. That broke discovery at the very first hop: nothing wrong with the controller, repo-server, or kube API server, just an unreachable repo. Every child Application silently never appeared.</p>
+        <p><code>bootstrap/root-app.yaml</code>bug: I renamed the repo and in editing the YAMLs I had a typo so that instead of <code>argocd-challenge</code>, I had <code>argcd-challenge</code>. That broke discovery at the very first hop: nothing wrong with the controller, repo-server, or kube API server, just an unreachable repo. Every child Application silently never appeared.</p>
       </div>
     </section>
 
     <!-- Slide 7: takeaways -->
     <section class="center">
       <div class="kicker">Key takeaways</div>
-      <h2 style="margin-bottom:0.7em;">Three things worth remembering</h2>
+      <h2 style="margin-bottom:0.7em;">Four things worth remembering</h2>
       <div style="text-align:left; display:inline-block; max-width:26em;">
         <div class="takeaway"><strong>application-controller</strong> is the reconciliation engine. argocd-server is API/UI/webhook plumbing, not the loop itself.</div>
         <div class="takeaway">The <strong>kube API server</strong> is the shared backbone: it stores both Argo CD's own state (Applications) and the managed cluster's live state.</div>
         <div class="takeaway">Auto-sync is a <strong>continuous loop</strong>, not a one-time action &mdash; every poll, webhook, and self-heal pass runs the same diff/apply path.</div>
+        <div class="takeaway">The <code>repo-server</code> does the manifests generation, using either <code>helm</code> or <code>kustomize</code> (mainly). It's also where we can inject extras like decryption, secrets management and more, via the Config Management Plugins (CMP).</div>
       </div>
     </section>
 
