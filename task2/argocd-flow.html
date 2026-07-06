@@ -211,7 +211,7 @@ sequenceDiagram
       </table>
       <div class="callout">
         <div class="kicker">From my own Part 1 submission</div>
-        <p><code>bootstrap/root-app.yaml</code> pointed at <code>github.com/&hellip;/argcd-challenge.git</code> &mdash; missing the "o" in argocd. That broke discovery at the very first hop: nothing wrong with the controller, repo-server, or kube API server, just an unreachable repo. Every child Application silently never appeared. Lesson: a "nothing is syncing" report is a Step-1/Step-2 symptom as often as it's a Step-4/Step-6 one &mdash; check the earliest link in the chain before assuming the reconciliation logic is broken.</p>
+        <p><code>bootstrap/root-app.yaml</code> I renamed the repo and in editing the YAMLs I had a typo so that instead of <code>argocd-challenge</code>, I had <code>argcd-challend</code>&mdash;. That broke discovery at the very first hop: nothing wrong with the controller, repo-server, or kube API server, just an unreachable repo. Every child Application silently never appeared.</p>
       </div>
     </section>
 
