@@ -9,7 +9,7 @@
 - [Repo structure](#repo-structure)
 - [Verification and testing](#verification-and-testing)
 - [Troubleshooting guide](#troubleshooting-guide)
-- [Real-World Production Considerations](real-world-production-considerations)
+- [Real-World Production Considerations](#real-world-production-considerations)
 
 ## Prerequisites
 
