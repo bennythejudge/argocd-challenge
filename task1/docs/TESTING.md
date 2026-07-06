@@ -97,7 +97,7 @@ The Argo CD UI after the application setup is applied.
 
 #### Alerts
 
-![Alerts status in Prometheus UI](prom-alerts.png)
+![Alerts status in Prometheus UI](prom-alerts-overview.png)
 
 #### Alert firing
 
