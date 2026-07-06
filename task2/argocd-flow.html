@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How Argo CD Auto-Syncs a Change from Git to Cluster</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css">
+<style>
+  :root{
+    --ink:#1b1f24; --sub:#5b6572; --line:#e3e7ec;
+    --git:#8a63d2; --argo:#2f7de1; --ctrl:#1aa179; --repo:#e08a1e; --api:#d9455f;
+    --accent:#2f7de1;
+  }
+  .reveal{ font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color:var(--ink); }
+  .reveal h1, .reveal h2, .reveal h3 { font-weight:700; letter-spacing:-0.01em; }
+  .reveal h2 { color:var(--ink); font-size:1.5em; margin-bottom:0.4em; }
+  .reveal section { text-align:left; }
+  .reveal .title-slide, .reveal .center { text-align:center; }
+  .kicker{ text-transform:uppercase; letter-spacing:0.12em; font-size:0.42em; color:var(--sub); font-weight:600; }
+  .subtitle{ color:var(--sub); font-size:0.62em; margin-top:0.6em; line-height:1.5; }
+
+  .cast-grid{ display:grid; grid-template-columns: repeat(2, 1fr); gap:0.55em; margin-top:0.5em; }
+  .cast-card{ border:1px solid var(--line); border-left:6px solid var(--c); border-radius:10px; padding:0.55em 0.8em; }
+  .cast-card h3{ font-size:0.62em; margin:0 0 0.18em 0; color:var(--c); }
+  .cast-card p{ font-size:0.4em; color:var(--sub); margin:0; line-height:1.45; }
+
+  .mermaid{ text-align:center; }
+  .mermaid svg{ max-width:100%; height:auto !important; }
+
+  .caption-box{ position:relative; height:5.6em; margin-top:0.5em; }
+  .caption{ position:absolute; top:0; left:0; width:100%; }
+  .caption h3{ font-size:0.55em; margin:0 0 0.15em 0; color:var(--accent); }
+  .caption p{ font-size:0.4em; color:var(--sub); line-height:1.5; margin:0; }
+  .step-tag{ font-size:0.32em; color:#fff; background:var(--accent); border-radius:5px; padding:0.15em 0.6em; display:inline-block; margin-bottom:0.35em; font-weight:600; letter-spacing:0.03em; }
+
+  ul.notes li{ font-size:0.55em; line-height:1.6; margin-bottom:0.35em; }
+  ul.notes strong{ color:var(--ink); }
+
+  .trouble-table{ width:100%; border-collapse:collapse; font-size:0.4em; }
+  .trouble-table th{ text-align:left; color:var(--sub); font-weight:600; border-bottom:2px solid var(--line); padding:0.4em 0.6em; }
+  .trouble-table td{ border-bottom:1px solid var(--line); padding:0.5em 0.6em; vertical-align:top; line-height:1.5; }
+  .trouble-table td.comp{ font-weight:700; white-space:nowrap; }
+  .callout{ margin-top:0.7em; border:1px solid var(--line); border-left:6px solid var(--repo); border-radius:10px; padding:0.5em 0.8em; background:#fffaf2; }
+  .callout p{ font-size:0.42em; color:var(--ink); line-height:1.55; margin:0; }
+  .callout .kicker{ font-size:0.34em; }
+
+  .takeaway{ font-size:0.55em; line-height:1.6; margin-bottom:0.5em; padding-left:1.4em; position:relative; }
+  .takeaway::before{ content:"→"; position:absolute; left:0; color:var(--accent); font-weight:700; }
+</style>
+</head>
+<body>
+<div class="reveal">
+  <div class="slides">
+
+    <!-- Slide 1: Title -->
+    <section class="title-slide">
+      <div class="kicker">ArgoCD Challenge &middot; Part 2</div>
+      <h1 style="font-size:1.3em; margin-top:0.3em;">How Argo CD Auto-Syncs a<br>Change from Git to the Cluster</h1>
+      <div class="subtitle">
+        An end-to-end walkthrough of how <strong>git server</strong>, <strong>argocd-server</strong>,
+        <strong>application-controller</strong>, <strong>repo-server</strong>, and the
+        <strong>Kubernetes API server</strong> interact during one GitOps reconciliation.
+        <br><br>Press <strong>N</strong> / click / arrow-right to advance.
+      </div>
+    </section>
+
+    <!-- Slide 2: Meet the components -->
+    <section>
+      <div class="kicker">Before the flow</div>
+      <h2>Meet the five components</h2>
+      <div class="cast-grid">
+        <div class="cast-card" style="--c:var(--git)">
+          <h3>Git Server</h3>
+          <p>Hosts the desired-state manifests (plain YAML, Helm chart + values, or Kustomize). Any git host &mdash; GitHub, GitLab, etc. Not part of Argo CD itself; it's just the source of truth.</p>
+        </div>
+        <div class="cast-card" style="--c:var(--argo)">
+          <h3>argocd-server</h3>
+          <p>The API/UI/CLI gateway. Enforces RBAC and SSO, serves status to users, and receives git webhooks. It does <strong>not</strong> run the reconciliation loop itself.</p>
+        </div>
+        <div class="cast-card" style="--c:var(--ctrl)">
+          <h3>application-controller</h3>
+          <p>The actual reconciliation engine. Watches Application custom resources, diffs desired vs. live state, and applies changes to the target cluster.</p>
+        </div>
+        <div class="cast-card" style="--c:var(--repo)">
+          <h3>repo-server</h3>
+          <p>Stateless manifest renderer. Clones/fetches from the git server and runs the right templating tool (Helm/Kustomize/plain) to produce final Kubernetes YAML. Caches results.</p>
+        </div>
+        <div class="cast-card" style="--c:var(--api); grid-column: span 2;">
+          <h3>Kubernetes API Server</h3>
+          <p>The shared source of truth every other component talks to &mdash; it stores both the <strong>live cluster resources</strong> being managed <em>and</em> Argo CD's own <strong>Application custom resources</strong> (as etcd-backed CRs).</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 3: The sequence diagram (static Mermaid, no custom JS) -->
+    <section>
+      <div class="kicker">The reconciliation loop &middot; sequence diagram</div>
+      <h2>What happens when a developer pushes a change</h2>
+      <pre class="mermaid">
+sequenceDiagram
+    participant Dev as Developer
+    participant Git as Git Server
+    participant Argo as argocd-server
+    participant API as kube API Server
+    participant Ctrl as application-controller
+    participant Repo as repo-server
+
+    Dev->>Git: [1] push manifest change
+    Git-->>Argo: [2] webhook (or polling ~every 3m)
+    Argo->>API: [3] mark Application for refresh
+    API-->>Ctrl: [3] watch notices the refresh
+    Ctrl->>Repo: [4] GenerateManifest RPC
+    Repo->>Git: [4] fetch target commit
+    Repo-->>Ctrl: [4] rendered manifests
+    Ctrl->>API: [5] read live state (diff)
+    Ctrl->>API: [6] apply create / update / prune (depends also on exact configuration[*])
+    Ctrl->>API: [7] write Sync + Health status
+    Note over Argo,API: argocd-server only reads<br/>status back out, for the UI/CLI
+      </pre>
+      <p style="font-size:0.4em; color:var(--sub); text-align:center; margin-top:0.3em;">Numbers match the step-by-step walkthrough on the next slide.</p>
+      <p style="font-size:0.3em; color:var(--sub); text-align:center; margin-top:0.3em;">[*] The exact scope of actions that ArgoCD will perform can be controlled. For example we can prevent ArgoCD from pruning resources.</p>
+    </section>
+
+    <!-- Slide 4: step-by-step walkthrough (text only, native reveal.js fragments, no JS) -->
+    <section id="flow-slide">
+      <div class="kicker">A narrative version of the same loop.</div>
+      <h2>Walk through it, step by step</h2>
+      <div class="caption-box">
+        <div class="caption fragment fade-in-then-out" data-step="1">
+          <span class="step-tag">Step 1</span>
+          <h3>A change lands in Git</h3>
+          <p>A developer merges updated manifests (or Helm values) into the tracked path. That commit is now the desired state Argo CD must reconcile the cluster toward.</p>
+        </div>
+        <div class="caption fragment fade-in-then-out" data-step="2">
+          <span class="step-tag">Step 2</span>
+          <h3>A refresh is triggered</h3>
+          <p>Either a git webhook hits argocd-server's webhook endpoint (near-instant), or application-controller's own timer polls on its default ~3-minute interval. Either path ends the same way: the Application resource is marked for refresh.</p>
+        </div>
+        <div class="caption fragment fade-in-then-out" data-step="3">
+          <span class="step-tag">Step 3</span>
+          <h3>application-controller picks it up</h3>
+          <p>That "refresh" is really just a write to the Application custom resource, stored via the kube API server. application-controller watches Applications through a kube API informer, so it notices the refresh instantly &mdash; regardless of who requested it.</p>
+        </div>
+        <div class="caption fragment fade-in-then-out" data-step="4">
+          <span class="step-tag">Step 4</span>
+          <h3>repo-server renders the manifests</h3>
+          <p>application-controller calls repo-server's GenerateManifest gRPC API. repo-server fetches the target commit from the git server and runs the right tool (Helm/Kustomize/plain YAML) to produce final Kubernetes manifests.</p>
+        </div>
+        <div class="caption fragment fade-in-then-out" data-step="5">
+          <span class="step-tag">Step 5</span>
+          <h3>Controller diffs desired vs. live</h3>
+          <p>application-controller already keeps a cache of the target cluster's live objects, built from kube API server watches. It normalizes and diffs that live state against repo-server's rendered manifests to compute exactly which resources are OutOfSync.</p>
+        </div>
+        <div class="caption fragment fade-in-then-out" data-step="6">
+          <span class="step-tag">Step 6</span>
+          <h3>Controller applies the diff</h3>
+          <p>Using its own ServiceAccount credentials, application-controller applies creates/updates/prunes directly against the kube API server (server-side apply, if enabled). Native Kubernetes controllers then roll out the actual change.</p>
+        </div>
+        <div class="caption fragment fade-in-then-out" data-step="7">
+          <span class="step-tag">Step 7</span>
+          <h3>Status is reported, loop continues</h3>
+          <p>application-controller writes the new Sync/Health status back onto the Application resource. argocd-server just reads that status for the UI/CLI. The loop never stops &mdash; the next drift, from git or a manual kubectl edit, gets caught the same way.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 5: it never really stops -->
+    <section>
+      <div class="kicker">Why this matters</div>
+      <h2>It never really stops. At the heart of GitOps.</h2>
+      <ul class="notes">
+        <li><strong>Default polling:</strong> the application-controller re-diffs every Application on a timer (~3 minutes by default).</li>
+        <li><strong>Webhooks are an alternative to polling:</strong> they just skip the polling wait and funnel into the exact same diff/apply logic. They help avoid rate limiting by the Git provider.</li>
+        <li><strong>Self-heal:</strong> with <code>selfHeal: true</code>, a manual <code>kubectl edit</code> that drifts from git gets reverted on the very next loop &mdash; live state no longer matches the rendered manifest, so the controller "fixes" it back to git. One of the tennet of GitOps.</li>
+        <li><strong>Two independent status fields:</strong> <em>Sync status</em> (does live match git?) and <em>Health status</em> (are the resulting objects actually healthy?) are separate. A Synced app can still be Degraded (e.g. CrashLoopBackOff) &mdash; sync says nothing about whether the change worked.</li>
+      </ul>
+    </section>
+
+    <!-- Slide 6: troubleshooting -->
+    <section>
+      <div class="kicker">Support engineer lens</div>
+      <h2>Typical points where things could break.</h2>
+      <table class="trouble-table">
+        <tr><th>Component</th><th>Common failure</th><th>Where to look</th></tr>
+        <tr>
+          <td class="comp" style="color:var(--git)">Git Server</td>
+          <td>Repo unreachable or auth failure</td>
+          <td>Application stuck in an error/Unknown state; check the repo credentials Secret and repo-server logs (clone/fetch errors).</td>
+        </tr>
+        <tr>
+          <td class="comp" style="color:var(--argo)">argocd-server</td>
+          <td>Webhook never arrives</td>
+          <td>App only updates on the ~3-min poll instead of instantly; check the webhook secret/URL config and argocd-server webhook logs.</td>
+        </tr>
+        <tr>
+          <td class="comp" style="color:var(--repo)">repo-server</td>
+          <td>Render failure (bad chart, wrong Helm/Kustomize version, missing values)</td>
+          <td>Application shows a ComparisonError; check repo-server logs and <code>argocd app manifests</code>.</td>
+        </tr>
+        <tr>
+          <td class="comp" style="color:var(--ctrl)">application-controller</td>
+          <td>Stuck OutOfSync or diffing forever</td>
+          <td>Often a CRD-before-CR ordering problem; check sync-wave annotations and controller logs.</td>
+        </tr>
+        <tr>
+          <td class="comp" style="color:var(--api)">kube API server</td>
+          <td>Apply fails with RBAC/admission errors</td>
+          <td>Controller logs show the raw Kubernetes error; check the Argo CD ServiceAccount's RBAC and any admission webhooks in the target cluster.</td>
+        </tr>
+      </table>
+      <div class="callout">
+        <div class="kicker">From my own Part 1 submission</div>
+        <p><code>bootstrap/root-app.yaml</code> pointed at <code>github.com/&hellip;/argcd-challenge.git</code> &mdash; missing the "o" in argocd. That broke discovery at the very first hop: nothing wrong with the controller, repo-server, or kube API server, just an unreachable repo. Every child Application silently never appeared. Lesson: a "nothing is syncing" report is a Step-1/Step-2 symptom as often as it's a Step-4/Step-6 one &mdash; check the earliest link in the chain before assuming the reconciliation logic is broken.</p>
+      </div>
+    </section>
+
+    <!-- Slide 7: takeaways -->
+    <section class="center">
+      <div class="kicker">Key takeaways</div>
+      <h2 style="margin-bottom:0.7em;">Three things worth remembering</h2>
+      <div style="text-align:left; display:inline-block; max-width:26em;">
+        <div class="takeaway"><strong>application-controller</strong> is the reconciliation engine. argocd-server is API/UI/webhook plumbing, not the loop itself.</div>
+        <div class="takeaway">The <strong>kube API server</strong> is the shared backbone: it stores both Argo CD's own state (Applications) and the managed cluster's live state.</div>
+        <div class="takeaway">Auto-sync is a <strong>continuous loop</strong>, not a one-time action &mdash; every poll, webhook, and self-heal pass runs the same diff/apply path.</div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'loose' });
+  new Reveal({ width: 1200, height: 750, margin: 0.08, hash: true, transition: 'slide' }).initialize();
+</script>
+</body>
+</html>
