@@ -14,6 +14,9 @@ Once I had the overall design done, I used Claude code to help me generate the f
 
 - I understood what it did and why it was there.
 
+For [task nr.2](task2), I wanted to play with [`reveal js`](https://revealjs.com/) and [`mermaid js`](https://github.com/mermaid-js/mermaid), and I enrolled Claude code help to get a base scaffolding to build the slides, with the diagram, the slides transition and the coloring. I wrote the draft text and got help improving it.
+The diagram itself is 100% Mermaid-generated; the CSS is purely cosmetic scaffolding around it.
+
 ## Access to the solutions
 
 Clone the repo and `cd` into the root of the repo.
