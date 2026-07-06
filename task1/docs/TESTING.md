@@ -81,3 +81,25 @@ Screenshots captured for task 1.
 ![Argo CD application overview](argocdscreenshot01.png)
 
 The Argo CD UI after the application setup is applied.
+
+### Grafana
+
+![Grafana ArgoCD Dashboard](grafana.png)
+
+### Prometheus
+
+#### Rules
+
+![Rules status in Prometheus UI](prom-rules.png)
+
+#### Targets
+
+![Targets status in Prometheus UI](prom-targets.png)
+
+#### Alerts
+
+![Alerts status in Prometheus UI](prom-alerts.png)
+
+#### Alert firing
+
+![Example of an alert firing](prom-alert-firing.png)
