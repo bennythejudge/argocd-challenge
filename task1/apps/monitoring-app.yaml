@@ -41,7 +41,7 @@ spec:
                 monitoring: "true"
 
         grafana:
-          enabled: true
+          enabled: false
           # Password managed via Secret (created separately) # pragma: allowlist secret
           admin:
             existingSecret: grafana-admin-secret # pragma: allowlist secret
