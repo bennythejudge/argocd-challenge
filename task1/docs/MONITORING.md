@@ -68,7 +68,7 @@ See `README.md`'s troubleshooting guide for step-by-step debugging of missing me
 
 ## Production considerations
 
-This setup is intentionally minimal for a local demo. For production:
+This setup is intentionally minimal for a local demo. Several changes would be needed to use this setup in a production environment. Some ideas:
 
 - Move namespace labels (`monitoring: "true"`) into declarative manifests instead of the imperative `kubectl label` in the Taskfile.
 - Add persistent storage and HA (2+ Prometheus/Alertmanager replicas) — current setup uses ephemeral storage with 7-day retention, single replica.
